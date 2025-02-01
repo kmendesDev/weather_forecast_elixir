@@ -8,8 +8,7 @@ defmodule Weather.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: Weather.Worker.start_link(arg)
-      # {Weather.Worker, arg}
+      Weathers.Repo,
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
