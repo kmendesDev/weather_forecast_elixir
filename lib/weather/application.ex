@@ -9,6 +9,7 @@ defmodule Weather.Application do
   def start(_type, _args) do
     children = [
       Weathers.Repo,
+      Weather.ForecastGenServer
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
