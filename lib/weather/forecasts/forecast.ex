@@ -1,27 +1,34 @@
-defmodule Weather.Forecast.Forecast do
+defmodule Weather.Forecasts.Forecast do
 
-    alias Weather.Coordinates.Coordinates
+    alias Weather.Coordinates.Coordinate
     alias Weather.Weather
     alias Weathers.Repo
 
-    def get_weather(city, state, country) do
-        case Coordinates.call(city, state, country) do
-            {:ok, coordinates} -> call_weather_api(city, coordinates)
+    def get_forecast(city, state, country) do
+        with {:ok, coordinates} <- get_coordinates(city, state, country),
+             {:ok, forecast} <- call_weather_api(coordinates),
+             formatted_forecast <- format_response(forecast, city),
+             {:ok, weather} <- store_weather(formatted_forecast) do
+                {:ok, weather}
+        else
+            {:error, reason} -> {:error, reason}
+        end
+    end
+    defp get_coordinates(city, state, country) do
+        case Coordinate.get_coordinates(city, state, country) do
+            {:ok, coordinates} -> {:ok, coordinates}
             {:error, :not_found} -> "url not found"
             {:error, %{}} -> "location not found"
             {:error, reason} -> reason
         end
     end
-    defp call_weather_api(city, %{"latitude" => lat, "longitude" => lon }) do
+    defp call_weather_api(%{"latitude" => lat, "longitude" => lon }) do
         url = "https://api.openweathermap.org/data/2.5/weather?lat=#{lat}&lon=#{lon}&appid=9e40882d49c9fbd3c949c345aa42701f"
         case HTTPoison.get(url) do
             {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-                body
-                |> Jason.decode!()
-                |> format_response(city)
-                |> store_weather()
+                {:ok, Jason.decode!(body)}
             {:ok, %HTTPoison.Response{status_code: 404}} ->
-                {:error, :not_found}
+                {:error, "weather data not found"}
             {:error, %HTTPoison.Error{reason: reason}} ->
                 {:error, reason}
         end
@@ -49,11 +56,9 @@ defmodule Weather.Forecast.Forecast do
         } 
     end
     defp format_time(time) do
-        time
-        |> DateTime.from_unix(:second)
-        |> case do 
+        case DateTime.from_unix(time, :second) do
             {:ok, datetime} -> DateTime.to_iso8601(datetime)
-            _ -> nil
+            {:error, _reason} -> nil
         end
     end
     defp store_weather(forecast) do
